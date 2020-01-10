@@ -49,12 +49,15 @@ def write_datfile(root):
             picture = entry.find("ASSET/picture")
             video = entry.find("ASSET/glossmain")
             handshape = entry.find("handshape")
+            tags = entry.find("HEADWORDTAGS")
             if picture is None:
                 print("{} missing picture".format(headword))
             if video is None:
                 print("{} missing video".format(headword))
             if handshape is None:
                 print("{} missing handshape".format(headword))
+            if tags is None:
+                print("{} missing tags".format(headword))
             print("\t".join([
                 entry.find("glossmain").text,
                 sec.text if sec is not None else "",
@@ -63,19 +66,20 @@ def write_datfile(root):
                 "http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/assets/"+video.text.replace(".webm", ".mp4") if video is not None else   "",
                 handshape.text if handshape is not None else "",
                 entry.find("location").text,
+                tags.text if tags is not None else "",
             ]), file=f)
 
 def write_sqlitefile():
     if os.path.exists("nzsl.db"):
         os.unlink("nzsl.db")
     db = sqlite3.connect("nzsl.db")
-    db.execute("create table words (gloss, minor, maori, picture, video, handshape, location, target)")
+    db.execute("create table words (gloss, minor, maori, picture, video, handshape, location, tags, target)")
     with open("nzsl.dat") as f:
         for s in f:
-            a = s.strip().split("\t")
+            a = s.split("\t")
             a.append("{}|{}|{}".format(normalise(a[0]), normalise(a[1]), normalise(a[2])))
             assert all(32 <= ord(x) < 127 for x in a[-1]), a[-1]
-            db.execute("insert into words values (?, ?, ?, ?, ?, ?, ?, ?)", a)
+            db.execute("insert into words values (?, ?, ?, ?, ?, ?, ?, ?, ?)", a)
     db.commit()
     db.close()
 
