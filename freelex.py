@@ -28,17 +28,17 @@ def fetch_assets(root):
                         f.write(r.read())
 
 def rename_assets(root):
-# Modify filenames to match the Android requirements (lowercase a-z and _ only)
-     for entry in root.iter("entry"):
-         for asset in entry.find("ASSET"):
-             if ("picture" == asset.tag):
-                 oldfn = os.path.join(asset.tag, asset.text)
-                 newfn = oldfn.replace('-', '_').lower()
-                 num_of_periods = newfn.count('.')
-                 if (num_of_periods > 1):
-                     newfn = newfn.replace('.', '_', num_of_periods - 1)
-                 os.rename(oldfn, newfn)
-                 asset.text = newfn.replace('picture/', '', 1)
+    # Modify filenames to match the Android requirements (lowercase a-z and _ only)
+    for entry in root.iter("entry"):
+        for asset in entry.find("ASSET"):
+            if ("picture" == asset.tag):
+                oldfn = os.path.join(asset.tag, asset.text)
+                newfn = oldfn.replace('-', '_').lower()
+                num_of_periods = newfn.count('.')
+                if (num_of_periods > 1):
+                    newfn = newfn.replace('.', '_', num_of_periods - 1)
+                os.rename(oldfn, newfn)
+                asset.text = newfn.replace('picture/', '', 1)
 
 def process_entry(entry):
     id       = entry.attrib["id"]
