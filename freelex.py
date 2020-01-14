@@ -1,5 +1,6 @@
 import sys
 import os
+import hashlib
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -7,38 +8,43 @@ import re
 import shutil
 import sqlite3
 
-def fetch_database(filename):
+def update_database(fname):
     r = urllib.request.urlopen('http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/publicsearch?xmldump=1')
-    with open(filename, "wb") as f:
-        f.write(r.read())
+    rread = r.read()
+    new_hash = hashlib.sha512(rread).hexdigest()
+    
+    if os.path.exists(fname):
+        with open(fname, "rb") as f:
+            old_hash = hashlib.sha512(f.read()).hexdigest()
+        if new_hash == old_hash:
+            return False
+
+    with open(fname, "wb") as f:
+        f.write(rread)
+    return True
 
 def fetch_assets(root):
     for entry in root.iter("entry"):
         print(entry.find("headword").text)
         for asset in entry.find("ASSET"):
             if ("picture" == asset.tag):
-                fn = "picture/" + asset.text
-                if not os.path.exists(fn):
+                fname = "picture/" + normalise_filename(asset.text)
+                if not os.path.exists(fname):
                     try:
-                        os.makedirs(os.path.dirname(fn))
+                        os.makedirs(os.path.dirname(fname))
                     except IOError:
                         pass
-                    r = urllib.request.urlopen("http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/assets/" +       urllib.parse.quote(asset.text))
-                    with open(fn, "wb") as f:
+                    r = urllib.request.urlopen("http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/assets/" + urllib.parse.quote(asset.text))
+                    with open(fname, "wb") as f:
                         f.write(r.read())
+                asset.text = fname
 
-def rename_assets(root):
-    # Modify filenames to match the Android requirements (lowercase a-z and _ only)
-    for entry in root.iter("entry"):
-        for asset in entry.find("ASSET"):
-            if ("picture" == asset.tag):
-                oldfn = "picture/" + asset.text
-                newfn = oldfn.replace('-', '_').lower()
-                num_of_periods = newfn.count('.')
-                if (num_of_periods > 1):
-                    newfn = newfn.replace('.', '_', num_of_periods - 1)
-                os.rename(oldfn, newfn)
-                asset.text = newfn.replace('picture/', '', 1)
+def normalise_filename(old_fname):
+    new_fname = old_fname.replace("-", "_").lower()
+    num_of_periods = new_fname.count(".")
+    if (num_of_periods > 1):
+        new_fname = new_fname.replace(".", "_", num_of_periods - 1)
+    return new_fname
 
 def process_entry(entry):
     id       = entry.attrib["id"]
@@ -59,7 +65,7 @@ def process_entry(entry):
         elem = entry.find(value)
         if elem is None:
             if key not in ["sec", "maori"]:
-                print("{}|{} missing {}".format(id, headword, key))
+                print("{} missing {}".format((id, headword), key))
             d[key] = ""
         else:
             d[key] = elem.text
