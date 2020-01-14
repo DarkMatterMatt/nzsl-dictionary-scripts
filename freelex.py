@@ -3,6 +3,7 @@ import os
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+import re
 import shutil
 import sqlite3
 
@@ -10,7 +11,6 @@ def fetch_database(filename):
     r = urllib.request.urlopen('http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/publicsearch?xmldump=1')
     with open(filename, "wb") as f:
         f.write(r.read())
-
 
 def fetch_assets(root):
     for entry in root.iter("entry"):
@@ -40,46 +40,83 @@ def rename_assets(root):
                  os.rename(oldfn, newfn)
                  asset.text = newfn.replace('picture/', '', 1)
 
+def process_entry(entry):
+    id       = entry.attrib["id"]
+    headword = entry.find("headword").text
+    mapping  = {
+        "glossmain":  "glossmain",
+        "sec":        "glosssecondary",
+        "maori":      "glossmaori",
+        "picture":    "ASSET/picture",
+        "video":      "ASSET/glossmain",
+        "handshape":  "handshape",
+        "location":   "location",
+        "categories": "HEADWORDTAGS",
+    }
+    
+    d = {}
+    for key, value in mapping.items():
+        elem = entry.find(value)
+        if elem is None:
+            if key not in ["sec", "maori"]:
+                print("{}|{} missing {}".format(id, headword, key))
+            d[key] = ""
+        else:
+            d[key] = elem.text
+            
+    if d["picture"]:
+        d["picture"] = os.path.basename(d["picture"])
+    if d["video"]:
+        d["video"] = "http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/assets/" + d["video"].replace(".webm", ".mp4")
+    
+    d["norm_glossmain"] = normalise(d["glossmain"])
+    d["norm_sec"]       = normalise(d["sec"])
+    d["norm_maori"]     = normalise(d["maori"])
+    
+    d["norm_words_glossmain"] = re.sub(r"[^\w']+", "|", d["norm_glossmain"]).strip("|")
+    d["norm_words_sec"]       = d["norm_sec"].replace(", ", "|")
+    d["norm_words_maori"]     = d["norm_maori"].replace(", ", "|")
+    d["categories"]           = re.sub(r",(?=[^ ])", "|", normalise(d["categories"]))
+    
+    d["target"] = "|".join((d["norm_glossmain"], d["norm_sec"], d["norm_maori"]))
+    assert all(32 <= ord(x) < 127 for x in d["target"]), d["target"]
+        
+    return d
+
 def write_datfile(root):
     with open("nzsl.dat", "w") as f:
         for entry in root.iter("entry"):
-            headword = entry.attrib["id"], entry.find("headword").text
-            sec = entry.find("glosssecondary")
-            maori = entry.find("glossmaori")
-            picture = entry.find("ASSET/picture")
-            video = entry.find("ASSET/glossmain")
-            handshape = entry.find("handshape")
-            tags = entry.find("HEADWORDTAGS")
-            if picture is None:
-                print("{} missing picture".format(headword))
-            if video is None:
-                print("{} missing video".format(headword))
-            if handshape is None:
-                print("{} missing handshape".format(headword))
-            if tags is None:
-                print("{} missing tags".format(headword))
-            print("\t".join([
-                entry.find("glossmain").text,
-                sec.text if sec is not None else "",
-                maori.text if maori is not None else "",
-                os.path.basename(picture.text) if picture is not None else "",
-                "http://freelex.nzsl.vuw.ac.nz/dnzsl/freelex/assets/"+video.text.replace(".webm", ".mp4") if video is not None else   "",
-                handshape.text if handshape is not None else "",
-                entry.find("location").text,
-                tags.text if tags is not None else "",
-            ]), file=f)
+            d = process_entry(entry)
+                
+            print("\t".join((
+                d["glossmain"],
+                d["sec"],
+                d["maori"],
+                d["picture"],
+                d["video"],
+                d["handshape"],
+                d["location"],
+                d["categories"],
+            )), file=f)
 
-def write_sqlitefile():
+def write_sqlitefile(root):
     if os.path.exists("nzsl.db"):
         os.unlink("nzsl.db")
     db = sqlite3.connect("nzsl.db")
-    db.execute("create table words (gloss, minor, maori, picture, video, handshape, location, tags, target)")
-    with open("nzsl.dat") as f:
-        for s in f:
-            a = s.split("\t")
-            a.append("{}|{}|{}".format(normalise(a[0]), normalise(a[1]), normalise(a[2])))
-            assert all(32 <= ord(x) < 127 for x in a[-1]), a[-1]
-            db.execute("insert into words values (?, ?, ?, ?, ?, ?, ?, ?, ?)", a)
+    db.execute("create table words (gloss, minor, maori, picture, video, handshape, location, categories, target)")
+    for entry in root.iter("entry"):
+        d = process_entry(entry)
+        db.execute("insert into words values (?, ?, ?, ?, ?, ?, ?, ?, ?)", (
+            d["glossmain"],
+            d["sec"],
+            d["maori"],
+            d["picture"],
+            d["video"],
+            d["handshape"],
+            d["location"],
+            d["categories"],
+            d["target"],
+        ))
     db.commit()
     db.close()
 
