@@ -23,9 +23,10 @@ def update_database(fname):
         f.write(rread)
     return True
 
-def fetch_assets(root):
+def fetch_assets(root, verbose):
     for entry in root.iter("entry"):
-        print(entry.find("headword").text)
+        if verbose:
+            print(entry.find("headword").text)
         for asset in entry.find("ASSET"):
             if ("picture" == asset.tag):
                 fname = "picture/" + normalise_filename(asset.text)

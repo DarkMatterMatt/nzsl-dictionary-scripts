@@ -9,7 +9,8 @@ import shutil
 import freelex
 
 def print_run_msg(msg):
-    print(" - Running: " + msg)
+    if options.verbose:
+        print(" - Running: " + msg)
 
 parser = OptionParser()
 parser.add_option("-i", "--ios",
@@ -17,6 +18,7 @@ parser.add_option("-i", "--ios",
 parser.add_option("-a", "--android",
                   help="location of Android app root", metavar="ANDROID_PATH")
 parser.add_option("-c", action="store_true", dest="cleanup", help="clean up files after execution")
+parser.add_option("-v", "--verbose", action="store_true", help="increase verbosity")
 parser.add_option("--skip", help="Skip step numbers")
 
 (options, args) = parser.parse_args()
@@ -45,7 +47,7 @@ root = ET.XML(data, parser=parser)
 
 if "2" not in skip:
     print("Step 2: Fetching images from freelex")
-    freelex.fetch_assets(root)
+    freelex.fetch_assets(root, options.verbose)
 
 if "4" not in skip:
     print("Step 4: Write out nzsl.dat for Android")
