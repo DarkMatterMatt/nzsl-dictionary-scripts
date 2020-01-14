@@ -97,6 +97,12 @@ def write_datfile(root):
                 d["handshape"],
                 d["location"],
                 d["categories"],
+                d["norm_glossmain"],
+                d["norm_words_glossmain"],
+                d["norm_sec"],
+                d["norm_words_sec"],
+                d["norm_maori"],
+                d["norm_words_maori"],
             )), file=f)
 
 def write_sqlitefile(root):
