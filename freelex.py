@@ -17,7 +17,7 @@ def fetch_assets(root):
         print(entry.find("headword").text)
         for asset in entry.find("ASSET"):
             if ("picture" == asset.tag):
-                fn = os.path.join(asset.tag, asset.text)
+                fn = "picture/" + asset.text
                 if not os.path.exists(fn):
                     try:
                         os.makedirs(os.path.dirname(fn))
@@ -32,7 +32,7 @@ def rename_assets(root):
     for entry in root.iter("entry"):
         for asset in entry.find("ASSET"):
             if ("picture" == asset.tag):
-                oldfn = os.path.join(asset.tag, asset.text)
+                oldfn = "picture/" + asset.text
                 newfn = oldfn.replace('-', '_').lower()
                 num_of_periods = newfn.count('.')
                 if (num_of_periods > 1):
