@@ -23,7 +23,7 @@ parser.add_option("--skip", help="Skip step numbers")
 
 (options, args) = parser.parse_args()
 
-skip = options.skip.split(",")
+skip = [] if options.skip is None else options.skip.split(",")
 
 filename = 'dnzsl-xmldump.xml'
 
